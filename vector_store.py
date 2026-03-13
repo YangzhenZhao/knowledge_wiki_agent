@@ -17,8 +17,17 @@ import uuid
 from datetime import datetime
 import traceback
 import ollama
+from openai import OpenAI
 
-from config import CHROMA_PERSIST_DIR, OLLAMA_BASE_URL, OLLAMA_EMBED_MODEL
+from config import (
+    CHROMA_PERSIST_DIR,
+    OLLAMA_BASE_URL,
+    OLLAMA_EMBED_MODEL,
+    EMBED_PROVIDER,
+    OPENAI_API_KEY,
+    OPENAI_BASE_URL,
+    OPENAI_EMBED_MODEL
+)
 
 
 class VectorStore:
@@ -31,6 +40,11 @@ class VectorStore:
         )
         # Ollama 客户端，指定远程 host
         self.ollama_client = ollama.Client(host=OLLAMA_BASE_URL)
+        # OpenAI 客户端
+        self.openai_client = OpenAI(
+            api_key=OPENAI_API_KEY,
+            base_url=OPENAI_BASE_URL
+        )
         # 文档集合
         self.documents = self.client.get_or_create_collection(
             name="documents",
@@ -43,23 +57,38 @@ class VectorStore:
         )
 
     def _get_embedding(self, text: str) -> List[float]:
-        """使用 Ollama 生成文本嵌入向量"""
+        """生成文本嵌入向量，支持 Ollama 和 OpenAI 两种提供者"""
         try:
-            response = self.ollama_client.embeddings(
-                model=OLLAMA_EMBED_MODEL,
-                prompt=text
-            )
-            return response['embedding']
+            if EMBED_PROVIDER == "openai":
+                return self._get_openai_embedding(text)
+            else:
+                return self._get_ollama_embedding(text)
         except Exception as e:
             print(f"Error getting embedding: {e}")
             print(traceback.format_exc())
+            provider = "OpenAI" if EMBED_PROVIDER == "openai" else "Ollama"
+            embed_model = OPENAI_EMBED_MODEL if EMBED_PROVIDER == "openai" else OLLAMA_EMBED_MODEL
             raise Exception(
                 f"生成嵌入向量失败: {str(e)}\n"
-                f"请确保:\n"
-                f"1. Ollama 服务已启动 (ollama serve)\n"
-                f"2. Embedding 模型已下载: ollama pull {OLLAMA_EMBED_MODEL}\n"
-                f"推荐使用: ollama pull nomic-embed-text"
+                f"当前使用: {provider} ({embed_model})\n"
+                f"请检查配置是否正确。"
             )
+
+    def _get_ollama_embedding(self, text: str) -> List[float]:
+        """使用 Ollama 生成文本嵌入向量"""
+        response = self.ollama_client.embeddings(
+            model=OLLAMA_EMBED_MODEL,
+            prompt=text
+        )
+        return response['embedding']
+
+    def _get_openai_embedding(self, text: str) -> List[float]:
+        """使用 OpenAI API 生成文本嵌入向量（支持 GLM 等兼容 API）"""
+        response = self.openai_client.embeddings.create(
+            model=OPENAI_EMBED_MODEL,
+            input=text
+        )
+        return response.data[0].embedding
 
     def add_document(self, title: str, content: str) -> str:
         """添加文档到向量库"""

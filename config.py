@@ -6,6 +6,9 @@ load_dotenv(override=True)
 # 模型提供者配置: "ollama" 或 "openai"
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")
 
+# Embedding 提供者配置: "ollama" 或 "openai"
+EMBED_PROVIDER = os.getenv("EMBED_PROVIDER", "ollama")
+
 # Ollama 配置
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
@@ -16,6 +19,8 @@ OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+# OpenAI Embedding 模型（使用 GLM 时可设置为 embedding-3）
+OPENAI_EMBED_MODEL = os.getenv("OPENAI_EMBED_MODEL", "text-embedding-3-small")
 
 # ChromaDB 配置
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
