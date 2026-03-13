@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>知识库问答 Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        .header p {
+            opacity: 0.9;
+        }
+        .status-bar {
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 10px;
+            color: white;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        .tab:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .tab.active {
+            background: white;
+            color: #667eea;
+        }
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .form-group textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+        .btn {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .btn-danger {
+            background: #ff4757;
+        }
+        .chat-container {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+        .message.user {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+        }
+        .message.assistant {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .sources {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .sources h4 {
+            margin-bottom: 8px;
+            color: #555;
+        }
+        .source-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+            border-left: 3px solid #667eea;
+        }
+        .list-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        .list-item:hover {
+            background: #f8f9fa;
+        }
+        .list-item-content {
+            flex: 1;
+        }
+        .list-item-title {
+            font-weight: 500;
+            color: #333;
+        }
+        .list-item-meta {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 5px;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #667eea;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>知识库问答 Agent</h1>
+            <p>基于 Ollama + ChromaDB 的智能问答系统</p>
+        </div>
+
+        <div class="status-bar">
+            <span>模型: <strong id="model-name">-</strong></span>
+            <span>文档数: <strong id="doc-count">0</strong></span>
+            <span>问答数: <strong id="qa-count">0</strong></span>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('chat')">问答</button>
+            <button class="tab" onclick="showTab('documents')">文档管理</button>
+            <button class="tab" onclick="showTab('qa')">问答管理</button>
+        </div>
+
+        <!-- 问答界面 -->
+        <div id="chat-tab" class="card">
+            <h2>智能问答</h2>
+            <div id="chat-container" class="chat-container">
+                <div class="message assistant">
+                    你好！我是知识库问答助手。请上传文档或问答对，然后向我提问。
+                </div>
+            </div>
+            <div class="form-group">
+                <textarea id="question-input" placeholder="请输入你的问题..." rows="2"></textarea>
+            </div>
+            <button class="btn" onclick="sendQuestion()">
+                <span id="send-text">发送</span>
+            </button>
+        </div>
+
+        <!-- 文档管理 -->
+        <div id="documents-tab" class="card hidden">
+            <h2>文档管理</h2>
+
+            <div style="margin-bottom: 30px;">
+                <h3 style="margin-bottom: 15px;">上传文本</h3>
+                <div class="form-group">
+                    <label>标题</label>
+                    <input type="text" id="doc-title" placeholder="输入文档标题">
+                </div>
+                <div class="form-group">
+                    <label>内容</label>
+                    <textarea id="doc-content" placeholder="粘贴文档内容..."></textarea>
+                </div>
+                <button class="btn" onclick="uploadDocument()">上传文档</button>
+            </div>
+
+            <div style="margin-bottom: 30px;">
+                <h3 style="margin-bottom: 15px;">上传文件</h3>
+                <input type="file" id="doc-file" accept=".txt,.md" style="margin-bottom: 10px;">
+                <button class="btn btn-secondary" onclick="uploadFile()">上传文件</button>
+            </div>
+
+            <h3>文档列表</h3>
+            <div id="documents-list" class="list-container">
+                <!-- 动态加载 -->
+            </div>
+        </div>
+
+        <!-- 问答管理 -->
+        <div id="qa-tab" class="card hidden">
+            <h2>问答管理</h2>
+
+            <div style="margin-bottom: 30px;">
+                <h3 style="margin-bottom: 15px;">添加问答对</h3>
+                <div class="form-group">
+                    <label>问题</label>
+                    <textarea id="qa-question" rows="2" placeholder="输入问题"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>答案</label>
+                    <textarea id="qa-answer" rows="3" placeholder="输入答案"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>标签（逗号分隔）</label>
+                    <input type="text" id="qa-tags" placeholder="标签1, 标签2">
+                </div>
+                <button class="btn" onclick="uploadQA()">添加问答</button>
+            </div>
+
+            <h3>问答列表</h3>
+            <div id="qa-list" class="list-container">
+                <!-- 动态加载 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let isLoading = false;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStatus();
+            loadDocuments();
+            loadQA();
+        });
+
+        // 切换标签页
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.card').forEach(c => c.classList.add('hidden'));
+
+            event.target.classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.remove('hidden');
+        }
+
+        // 加载状态
+        async function loadStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/status`);
+                const data = await res.json();
+                document.getElementById('model-name').textContent = data.model;
+                document.getElementById('doc-count').textContent = data.document_count;
+                document.getElementById('qa-count').textContent = data.qa_count;
+            } catch (e) {
+                console.error('加载状态失败', e);
+            }
+        }
+
+        // 发送问题
+        async function sendQuestion() {
+            const input = document.getElementById('question-input');
+            const question = input.value.trim();
+            if (!question || isLoading) return;
+
+            isLoading = true;
+            document.getElementById('send-text').innerHTML = '<span class="loading"></span>';
+
+            // 添加用户消息
+            addMessage(question, 'user');
+            input.value = '';
+
+            // 添加助手消息占位
+            const assistantDiv = document.createElement('div');
+            assistantDiv.className = 'message assistant';
+            assistantDiv.innerHTML = '思考中...';
+            document.getElementById('chat-container').appendChild(assistantDiv);
+
+            try {
+                // 使用流式 API
+                const response = await fetch(`${API_BASE}/query/stream`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question, top_k: 3 })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullAnswer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = JSON.parse(line.slice(6));
+                            if (data.content) {
+                                fullAnswer += data.content;
+                                assistantDiv.innerHTML = formatAnswer(fullAnswer);
+                                scrollToBottom();
+                            }
+                            if (data.done) {
+                                // 获取来源信息
+                                fetch(`${API_BASE}/query`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ question, top_k: 3 })
+                                }).then(r => r.json())
+                                .then(result => {
+                                    if (result.sources && result.sources.length > 0) {
+                                        const sourcesDiv = document.createElement('div');
+                                        sourcesDiv.className = 'sources';
+                                        sourcesDiv.innerHTML = `
+                                            <h4>参考来源:</h4>
+                                            ${result.sources.map(s => `
+                                                <div class="source-item">
+                                                    <strong>${s.type === 'document' ? s.title : 'Q: ' + s.question}</strong>
+                                                    <br><small>相关度: ${(s.score * 100).toFixed(1)}%</small>
+                                                </div>
+                                            `).join('')}
+                                        `;
+                                        assistantDiv.appendChild(sourcesDiv);
+                                    }
+                                });
+                            }
+                            if (data.error) {
+                                assistantDiv.innerHTML = `错误: ${data.error}`;
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                assistantDiv.innerHTML = `发生错误: ${e.message}`;
+            }
+
+            isLoading = false;
+            document.getElementById('send-text').textContent = '发送';
+            scrollToBottom();
+        }
+
+        function formatAnswer(text) {
+            return text.replace(/\n/g, '<br>');
+        }
+
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.textContent = text;
+            document.getElementById('chat-container').appendChild(div);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('chat-container');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // 上传文档
+        async function uploadDocument() {
+            const title = document.getElementById('doc-title').value.trim();
+            const content = document.getElementById('doc-content').value.trim();
+
+            if (!title || !content) {
+                alert('请填写标题和内容');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/documents`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, content })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert('文档上传成功！');
+                    document.getElementById('doc-title').value = '';
+                    document.getElementById('doc-content').value = '';
+                    loadDocuments();
+                    loadStatus();
+                } else {
+                    alert('上传失败: ' + data.message);
+                }
+            } catch (e) {
+                alert('上传失败: ' + e.message);
+            }
+        }
+
+        // 上传文件
+        async function uploadFile() {
+            const fileInput = document.getElementById('doc-file');
+            if (!fileInput.files.length) {
+                alert('请选择文件');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const res = await fetch(`${API_BASE}/documents/file`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert('文件上传成功！');
+                    fileInput.value = '';
+                    loadDocuments();
+                    loadStatus();
+                } else {
+                    alert('上传失败: ' + data.message);
+                }
+            } catch (e) {
+                alert('上传失败: ' + e.message);
+            }
+        }
+
+        // 加载文档列表
+        async function loadDocuments() {
+            try {
+                const res = await fetch(`${API_BASE}/documents`);
+                const data = await res.json();
+                const container = document.getElementById('documents-list');
+
+                if (!data.documents || data.documents.length === 0) {
+                    container.innerHTML = '<p style="color: #888; text-align: center;">暂无文档</p>';
+                    return;
+                }
+
+                container.innerHTML = data.documents.map(doc => `
+                    <div class="list-item">
+                        <div class="list-item-content">
+                            <div class="list-item-title">${doc.title}</div>
+                            <div class="list-item-meta">ID: ${doc.id.slice(0, 8)}...</div>
+                        </div>
+                        <button class="btn btn-danger" onclick="deleteDocument('${doc.id}')">删除</button>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('加载文档失败', e);
+            }
+        }
+
+        // 删除文档
+        async function deleteDocument(docId) {
+            if (!confirm('确定删除这个文档？')) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/documents/${docId}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    loadDocuments();
+                    loadStatus();
+                } else {
+                    alert('删除失败');
+                }
+            } catch (e) {
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        // 上传问答
+        async function uploadQA() {
+            const question = document.getElementById('qa-question').value.trim();
+            const answer = document.getElementById('qa-answer').value.trim();
+            const tagsStr = document.getElementById('qa-tags').value.trim();
+            const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(t => t) : [];
+
+            if (!question || !answer) {
+                alert('请填写问题和答案');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/qa`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question, answer, tags })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert('问答添加成功！');
+                    document.getElementById('qa-question').value = '';
+                    document.getElementById('qa-answer').value = '';
+                    document.getElementById('qa-tags').value = '';
+                    loadQA();
+                    loadStatus();
+                } else {
+                    alert('添加失败: ' + data.message);
+                }
+            } catch (e) {
+                alert('添加失败: ' + e.message);
+            }
+        }
+
+        // 加载问答列表
+        async function loadQA() {
+            try {
+                const res = await fetch(`${API_BASE}/qa`);
+                const data = await res.json();
+                const container = document.getElementById('qa-list');
+
+                if (!data.qa_pairs || data.qa_pairs.length === 0) {
+                    container.innerHTML = '<p style="color: #888; text-align: center;">暂无问答</p>';
+                    return;
+                }
+
+                container.innerHTML = data.qa_pairs.map(qa => `
+                    <div class="list-item">
+                        <div class="list-item-content">
+                            <div class="list-item-title">Q: ${qa.question}</div>
+                            <div class="list-item-meta">
+                                A: ${qa.answer.slice(0, 50)}${qa.answer.length > 50 ? '...' : ''}
+                                ${qa.tags && qa.tags.length > 0 ? '<br>' + qa.tags.map(t => `<span class="tag">${t}</span>`).join('') : ''}
+                            </div>
+                        </div>
+                        <button class="btn btn-danger" onclick="deleteQA('${qa.id}')">删除</button>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('加载问答失败', e);
+            }
+        }
+
+        // 删除问答
+        async function deleteQA(qaId) {
+            if (!confirm('确定删除这个问答？')) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/qa/${qaId}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    loadQA();
+                    loadStatus();
+                } else {
+                    alert('删除失败');
+                }
+            } catch (e) {
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        // 回车发送
+        document.getElementById('question-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendQuestion();
+            }
+        });
+    </script>
+</body>
+</html>
