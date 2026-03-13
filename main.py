@@ -13,7 +13,7 @@ from datetime import datetime
 from models import DocumentUpload, QAUpload, QueryRequest, QueryResponse, WebUrlUpload
 from vector_store import vector_store
 from rag import rag_engine
-from config import HOST, PORT, OLLAMA_MODEL, OLLAMA_EMBED_MODEL, ADMIN_API_KEY
+from config import HOST, PORT, OLLAMA_MODEL, OLLAMA_EMBED_MODEL, ADMIN_API_KEY, APP_TITLE
 
 app = FastAPI(
     title="知识库问答 Agent",
@@ -217,7 +217,7 @@ async def delete_qa(qa_id: str, _: bool = Depends(verify_admin)):
 # ==================== 查询 API ====================
 
 @app.post("/api/query", response_model=QueryResponse)
-async def query(request: QueryRequest):
+async def query(request: QueryRequest, api_key: str = Header(None, alias="X-API-Key")):
     """查询知识库"""
     try:
         result = rag_engine.query(
@@ -225,22 +225,23 @@ async def query(request: QueryRequest):
             top_k=request.top_k
         )
 
-        # 格式化来源
+        # 只有 admin 才返回来源
         sources = []
-        for doc in result['sources']['documents']:
-            sources.append({
-                "type": "document",
-                "title": doc['title'],
-                "content": doc['content'][:200] + "..." if len(doc['content']) > 200 else doc['content'],
-                "score": round(doc['score'], 3)
-            })
-        for qa in result['sources']['qa_pairs']:
-            sources.append({
-                "type": "qa",
-                "question": qa['question'],
-                "answer": qa['answer'],
-                "score": round(qa['score'], 3)
-            })
+        if api_key == ADMIN_API_KEY:
+            for doc in result['sources']['documents']:
+                sources.append({
+                    "type": "document",
+                    "title": doc['title'],
+                    "content": doc['content'][:200] + "..." if len(doc['content']) > 200 else doc['content'],
+                    "score": round(doc['score'], 3)
+                })
+            for qa in result['sources']['qa_pairs']:
+                sources.append({
+                    "type": "qa",
+                    "question": qa['question'],
+                    "answer": qa['answer'],
+                    "score": round(qa['score'], 3)
+                })
 
         return QueryResponse(
             answer=result['answer'],
@@ -281,7 +282,8 @@ async def get_status():
         "model": OLLAMA_MODEL,
         "embed_model": OLLAMA_EMBED_MODEL,
         "document_count": len(vector_store.list_documents()),
-        "qa_count": len(vector_store.list_qa_pairs())
+        "qa_count": len(vector_store.list_qa_pairs()),
+        "app_title": APP_TITLE
     }
 
 

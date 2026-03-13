@@ -18,3 +18,6 @@ PORT = int(os.getenv("PORT", 8000))
 
 # Admin 认证配置
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "your-secret-admin-key-change-me")
+
+# 应用配置
+APP_TITLE = os.getenv("APP_TITLE", "知识库问答 Agent")
