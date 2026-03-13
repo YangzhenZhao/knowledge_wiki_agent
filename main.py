@@ -1,7 +1,7 @@
 """
 知识库问答 Agent - FastAPI 主程序
 """
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Header, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,7 +13,7 @@ from datetime import datetime
 from models import DocumentUpload, QAUpload, QueryRequest, QueryResponse, WebUrlUpload
 from vector_store import vector_store
 from rag import rag_engine
-from config import HOST, PORT, OLLAMA_MODEL, OLLAMA_EMBED_MODEL
+from config import HOST, PORT, OLLAMA_MODEL, OLLAMA_EMBED_MODEL, ADMIN_API_KEY
 
 app = FastAPI(
     title="知识库问答 Agent",
@@ -34,6 +34,15 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
+# ==================== Admin 认证 ====================
+
+async def verify_admin(api_key: str = Header(None, alias="X-API-Key")):
+    """验证 Admin 权限"""
+    if api_key != ADMIN_API_KEY:
+        raise HTTPException(status_code=403, detail="需要管理员权限")
+    return True
+
+
 # ==================== 页面路由 ====================
 
 @app.get("/", response_class=HTMLResponse)
@@ -46,7 +55,7 @@ async def index():
 # ==================== 文档 API ====================
 
 @app.post("/api/documents")
-async def upload_document(document: DocumentUpload):
+async def upload_document(document: DocumentUpload, _: bool = Depends(verify_admin)):
     """上传文档"""
     try:
         doc_id = vector_store.add_document(
@@ -61,7 +70,8 @@ async def upload_document(document: DocumentUpload):
 @app.post("/api/documents/file")
 async def upload_document_file(
     file: UploadFile = File(...),
-    title: Optional[str] = Form(None)
+    title: Optional[str] = Form(None),
+    _: bool = Depends(verify_admin)
 ):
     """上传文档文件"""
     try:
@@ -79,7 +89,7 @@ async def upload_document_file(
 
 
 @app.post("/api/documents/url")
-async def upload_document_url(web_url: WebUrlUpload):
+async def upload_document_url(web_url: WebUrlUpload, _: bool = Depends(verify_admin)):
     """通过URL抓取网页内容并存储"""
     import httpx
     from bs4 import BeautifulSoup
@@ -147,7 +157,7 @@ async def list_documents():
 
 
 @app.delete("/api/documents/{doc_id}")
-async def delete_document(doc_id: str):
+async def delete_document(doc_id: str, _: bool = Depends(verify_admin)):
     """删除文档"""
     try:
         success = vector_store.delete_document(doc_id)
@@ -164,7 +174,7 @@ async def delete_document(doc_id: str):
 # ==================== 问答 API ====================
 
 @app.post("/api/qa")
-async def upload_qa(qa: QAUpload):
+async def upload_qa(qa: QAUpload, _: bool = Depends(verify_admin)):
     """上传问答对"""
     try:
         qa_id = vector_store.add_qa_pair(
@@ -190,7 +200,7 @@ async def list_qa():
 
 
 @app.delete("/api/qa/{qa_id}")
-async def delete_qa(qa_id: str):
+async def delete_qa(qa_id: str, _: bool = Depends(verify_admin)):
     """删除问答对"""
     try:
         success = vector_store.delete_qa_pair(qa_id)

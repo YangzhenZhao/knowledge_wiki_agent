@@ -15,3 +15,6 @@ CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
 # 服务配置
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", 8000))
+
+# Admin 认证配置
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "your-secret-admin-key-change-me")

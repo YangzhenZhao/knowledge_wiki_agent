@@ -47,7 +47,7 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# 编辑 .env 文件，修改模型名称等配置
+# 编辑 .env 文件，修改模型名称、Admin 密钥等配置
 ```
 
 ### 4. 启动服务
@@ -57,6 +57,35 @@ python main.py
 ```
 
 服务启动后访问: http://localhost:8000
+
+## 权限说明
+
+系统区分 **Admin** 和 **普通用户** 权限：
+
+| 功能 | Admin | 普通用户 |
+|------|-------|----------|
+| 上传文档/文件/URL | ✓ | ✗ |
+| 添加/删除问答对 | ✓ | ✗ |
+| 删除文档 | ✓ | ✗ |
+| 查询知识库 | ✓ | ✓ |
+| 查看文档/问答列表 | ✓ | ✓ |
+
+### Admin 访问方式
+
+在 `.env` 中设置 `ADMIN_API_KEY`，然后通过带 token 的 URL 访问：
+
+```
+http://localhost:8000?token=your-admin-key
+```
+
+或在 API 请求中添加 Header：
+
+```bash
+curl -X POST http://localhost:8000/api/documents \
+  -H "X-API-Key: your-admin-key" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "测试", "content": "内容"}'
+```
 
 ## 使用说明
 
@@ -74,19 +103,19 @@ python main.py
 
 ## API 接口
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/documents` | 上传文档（JSON） |
-| POST | `/api/documents/file` | 上传文档（文件） |
-| POST | `/api/documents/url` | 从网页URL抓取并存储 |
-| GET | `/api/documents` | 获取文档列表 |
-| DELETE | `/api/documents/{id}` | 删除文档 |
-| POST | `/api/qa` | 添加问答对 |
-| GET | `/api/qa` | 获取问答列表 |
-| DELETE | `/api/qa/{id}` | 删除问答 |
-| POST | `/api/query` | 问答查询 |
-| POST | `/api/query/stream` | 流式问答查询 |
-| GET | `/api/status` | 系统状态 |
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| POST | `/api/documents` | 上传文档（JSON） | Admin |
+| POST | `/api/documents/file` | 上传文档（文件） | Admin |
+| POST | `/api/documents/url` | 从网页URL抓取并存储 | Admin |
+| GET | `/api/documents` | 获取文档列表 | 公开 |
+| DELETE | `/api/documents/{id}` | 删除文档 | Admin |
+| POST | `/api/qa` | 添加问答对 | Admin |
+| GET | `/api/qa` | 获取问答列表 | 公开 |
+| DELETE | `/api/qa/{id}` | 删除问答 | Admin |
+| POST | `/api/query` | 问答查询 | 公开 |
+| POST | `/api/query/stream` | 流式问答查询 | 公开 |
+| GET | `/api/status` | 系统状态 | 公开 |
 
 ## 项目结构
 

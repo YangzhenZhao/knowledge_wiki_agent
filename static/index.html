@@ -331,12 +331,57 @@
         const API_BASE = '/api';
         let isLoading = false;
 
+        // 从 URL 获取 admin token
+        const urlParams = new URLSearchParams(window.location.search);
+        const ADMIN_TOKEN = urlParams.get('token');
+
+        // 检查是否有 admin 权限
+        function hasAdminPermission() {
+            return ADMIN_TOKEN !== null;
+        }
+
+        // 获取请求 headers（带上 token）
+        function getHeaders(includeContentType = false) {
+            const headers = {};
+            if (includeContentType) {
+                headers['Content-Type'] = 'application/json';
+            }
+            if (ADMIN_TOKEN) {
+                headers['X-API-Key'] = ADMIN_TOKEN;
+            }
+            return headers;
+        }
+
+        // 显示权限提示
+        function showNoPermissionAlert(action) {
+            alert(`无权限执行此操作：${action}\n\n请使用带 token 的链接访问，例如：\n${window.location.origin}?token=your-admin-token`);
+        }
+
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
             loadStatus();
             loadDocuments();
             loadQA();
+
+            // 如果没有 token，禁用管理功能
+            if (!hasAdminPermission()) {
+                disableAdminFeatures();
+            }
         });
+
+        // 禁用管理功能（无 token 时）
+        function disableAdminFeatures() {
+            // 禁用文档管理按钮
+            document.querySelectorAll('#documents-tab .btn').forEach(btn => {
+                btn.disabled = true;
+                btn.title = '需要 Admin 权限';
+            });
+            // 禁用问答管理按钮
+            document.querySelectorAll('#qa-tab .btn:not(.btn-danger)').forEach(btn => {
+                btn.disabled = true;
+                btn.title = '需要 Admin 权限';
+            });
+        }
 
         // 切换标签页
         function showTab(tabName) {
@@ -464,6 +509,11 @@
 
         // 上传文档
         async function uploadDocument() {
+            if (!hasAdminPermission()) {
+                showNoPermissionAlert('上传文档');
+                return;
+            }
+
             const title = document.getElementById('doc-title').value.trim();
             const content = document.getElementById('doc-content').value.trim();
 
@@ -475,7 +525,7 @@
             try {
                 const res = await fetch(`${API_BASE}/documents`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getHeaders(true),
                     body: JSON.stringify({ title, content })
                 });
                 const data = await res.json();
@@ -487,7 +537,7 @@
                     loadDocuments();
                     loadStatus();
                 } else {
-                    alert('上传失败: ' + data.message);
+                    alert('上传失败: ' + (data.detail || data.message));
                 }
             } catch (e) {
                 alert('上传失败: ' + e.message);
@@ -496,6 +546,11 @@
 
         // 上传文件
         async function uploadFile() {
+            if (!hasAdminPermission()) {
+                showNoPermissionAlert('上传文件');
+                return;
+            }
+
             const fileInput = document.getElementById('doc-file');
             if (!fileInput.files.length) {
                 alert('请选择文件');
@@ -508,6 +563,7 @@
             try {
                 const res = await fetch(`${API_BASE}/documents/file`, {
                     method: 'POST',
+                    headers: getHeaders(),
                     body: formData
                 });
                 const data = await res.json();
@@ -518,7 +574,7 @@
                     loadDocuments();
                     loadStatus();
                 } else {
-                    alert('上传失败: ' + data.message);
+                    alert('上传失败: ' + (data.detail || data.message));
                 }
             } catch (e) {
                 alert('上传失败: ' + e.message);
@@ -527,6 +583,11 @@
 
         // 从网页抓取
         async function uploadWebUrl() {
+            if (!hasAdminPermission()) {
+                showNoPermissionAlert('抓取网页');
+                return;
+            }
+
             const url = document.getElementById('web-url').value.trim();
             const title = document.getElementById('web-title').value.trim();
 
@@ -546,7 +607,7 @@
             try {
                 const res = await fetch(`${API_BASE}/documents/url`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getHeaders(true),
                     body: JSON.stringify({ url, title: title || null })
                 });
                 const data = await res.json();
@@ -593,11 +654,17 @@
 
         // 删除文档
         async function deleteDocument(docId) {
+            if (!hasAdminPermission()) {
+                showNoPermissionAlert('删除文档');
+                return;
+            }
+
             if (!confirm('确定删除这个文档？')) return;
 
             try {
                 const res = await fetch(`${API_BASE}/documents/${docId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: getHeaders()
                 });
                 const data = await res.json();
 
@@ -605,7 +672,7 @@
                     loadDocuments();
                     loadStatus();
                 } else {
-                    alert('删除失败');
+                    alert('删除失败: ' + (data.detail || '未知错误'));
                 }
             } catch (e) {
                 alert('删除失败: ' + e.message);
@@ -614,6 +681,11 @@
 
         // 上传问答
         async function uploadQA() {
+            if (!hasAdminPermission()) {
+                showNoPermissionAlert('添加问答');
+                return;
+            }
+
             const question = document.getElementById('qa-question').value.trim();
             const answer = document.getElementById('qa-answer').value.trim();
             const tagsStr = document.getElementById('qa-tags').value.trim();
@@ -627,7 +699,7 @@
             try {
                 const res = await fetch(`${API_BASE}/qa`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getHeaders(true),
                     body: JSON.stringify({ question, answer, tags })
                 });
                 const data = await res.json();
@@ -640,7 +712,7 @@
                     loadQA();
                     loadStatus();
                 } else {
-                    alert('添加失败: ' + data.message);
+                    alert('添加失败: ' + (data.detail || data.message));
                 }
             } catch (e) {
                 alert('添加失败: ' + e.message);
@@ -678,11 +750,17 @@
 
         // 删除问答
         async function deleteQA(qaId) {
+            if (!hasAdminPermission()) {
+                showNoPermissionAlert('删除问答');
+                return;
+            }
+
             if (!confirm('确定删除这个问答？')) return;
 
             try {
                 const res = await fetch(`${API_BASE}/qa/${qaId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: getHeaders()
                 });
                 const data = await res.json();
 
@@ -690,7 +768,7 @@
                     loadQA();
                     loadStatus();
                 } else {
-                    alert('删除失败');
+                    alert('删除失败: ' + (data.detail || '未知错误'));
                 }
             } catch (e) {
                 alert('删除失败: ' + e.message);
