@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 # 模型提供者配置: "ollama" 或 "openai"
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")
