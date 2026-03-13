@@ -16,7 +16,8 @@ dependencies = [
     "httpx>=0.25.0",
     "beautifulsoup4>=4.12.0",
     "onnxruntime<1.17.0; sys_platform == 'darwin'",
+    "onnxruntime>=1.19.0; sys_platform != 'darwin'",
 ]
 
-[project.scripts]
-start = "uvicorn main:app --host 0.0.0.0 --port 8000"
+[tool.uv]
+package = false
