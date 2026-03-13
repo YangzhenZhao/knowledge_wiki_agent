@@ -36,27 +36,50 @@ ollama pull qwen2.5:7b
 ollama pull nomic-embed-text
 ```
 
-### 2. 安装 Python 依赖
+### 2. 安装 uv
+
+本项目使用 [uv](https://docs.astral.sh/uv/) 管理 Python 依赖，告别版本冲突。
+
+```bash
+# macOS/Linux
+pip install uv
+
+# 或使用 Homebrew
+brew install uv
+```
+
+### 3. 安装依赖
 
 ```bash
 cd knowledge_wiki_agent
-pip install -r requirements.txt
+uv sync
 ```
 
-### 3. 配置环境变量（可选）
+### 4. 配置环境变量（可选）
 
 ```bash
 cp .env.example .env
 # 编辑 .env 文件，修改模型名称、Admin 密钥等配置
 ```
 
-### 4. 启动服务
+### 5. 启动服务
 
 ```bash
-python main.py
+uv run uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 服务启动后访问: http://localhost:8000
+
+## uv 常用命令
+
+```bash
+uv sync              # 安装/同步依赖
+uv add <package>     # 添加新依赖
+uv remove <package>  # 移除依赖
+uv run <command>     # 在虚拟环境中运行命令
+uv lock              # 更新锁定文件
+uv pip list          # 查看已安装的包
+```
 
 ## 权限说明
 
@@ -126,7 +149,8 @@ knowledge_wiki_agent/
 ├── models.py         # 数据模型
 ├── vector_store.py   # 向量数据库管理
 ├── rag.py            # RAG 引擎
-├── requirements.txt  # 依赖
+├── pyproject.toml    # 项目配置（uv）
+├── uv.lock           # 依赖锁定文件
 ├── .env.example      # 环境变量示例
 └── static/
     └── index.html    # 前端页面

@@ -1,0 +1,22 @@
+[project]
+name = "knowledge-wiki-agent"
+version = "1.0.0"
+description = "基于 Ollama + ChromaDB 的知识库问答系统"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+    "python-multipart>=0.0.6",
+    "chromadb>=0.5.0",
+    "numpy<2.0",
+    "ollama>=0.1.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "httpx>=0.25.0",
+    "beautifulsoup4>=4.12.0",
+    "onnxruntime<1.17.0; sys_platform == 'darwin'",
+]
+
+[project.scripts]
+start = "uvicorn main:app --host 0.0.0.0 --port 8000"
