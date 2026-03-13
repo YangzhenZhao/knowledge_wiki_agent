@@ -1,6 +1,7 @@
 """
 向量数据库管理模块
 使用 ChromaDB 存储和检索文档
+Embedding 使用 Ollama
 """
 # 修复旧版 Linux 系统的 sqlite3 版本问题
 # ChromaDB 需要 sqlite3 >= 3.35.0
@@ -15,9 +16,9 @@ from typing import List, Optional
 import uuid
 from datetime import datetime
 import traceback
-
-from config import CHROMA_PERSIST_DIR, OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_EMBED_MODEL
 import ollama
+
+from config import CHROMA_PERSIST_DIR, OLLAMA_BASE_URL, OLLAMA_EMBED_MODEL
 
 
 class VectorStore:
@@ -44,7 +45,6 @@ class VectorStore:
     def _get_embedding(self, text: str) -> List[float]:
         """使用 Ollama 生成文本嵌入向量"""
         try:
-            # 使用配置的 Ollama host
             response = self.ollama_client.embeddings(
                 model=OLLAMA_EMBED_MODEL,
                 prompt=text

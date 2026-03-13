@@ -3,11 +3,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# 模型提供者配置: "ollama" 或 "openai"
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")
+
 # Ollama 配置
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
 # Embedding 模型（推荐使用 nomic-embed-text 或 mxbai-embed-large）
 OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+
+# OpenAI API 配置
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 # ChromaDB 配置
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
@@ -21,3 +29,10 @@ ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "your-secret-admin-key-change-me")
 
 # 应用配置
 APP_TITLE = os.getenv("APP_TITLE", "知识库问答 Agent")
+
+
+def get_llm_model():
+    """获取当前配置的 LLM 模型名称"""
+    if LLM_PROVIDER == "openai":
+        return OPENAI_MODEL
+    return OLLAMA_MODEL

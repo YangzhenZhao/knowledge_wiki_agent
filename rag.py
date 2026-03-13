@@ -1,20 +1,33 @@
 """
 RAG 模块 - 检索增强生成
-结合向量检索和 Ollama 生成回答
+结合向量检索和 LLM 生成回答（支持 Ollama 和 OpenAI）
 """
-import ollama
 from typing import List
-from config import OLLAMA_MODEL, OLLAMA_BASE_URL
+from config import (
+    LLM_PROVIDER, OLLAMA_MODEL, OLLAMA_BASE_URL,
+    OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL
+)
 from vector_store import vector_store
+
+if LLM_PROVIDER == "openai":
+    from openai import OpenAI
 
 
 class RAGEngine:
     """RAG 引擎"""
 
     def __init__(self):
-        self.model = OLLAMA_MODEL
-        # 配置 Ollama 客户端
-        self.client = ollama.Client(host=OLLAMA_BASE_URL)
+        self.provider = LLM_PROVIDER
+        if self.provider == "openai":
+            self.model = OPENAI_MODEL
+            self.client = OpenAI(
+                api_key=OPENAI_API_KEY,
+                base_url=OPENAI_BASE_URL
+            )
+        else:
+            import ollama
+            self.model = OLLAMA_MODEL
+            self.client = ollama.Client(host=OLLAMA_BASE_URL)
 
     def query(self, question: str, top_k: int = 3) -> dict:
         """基于知识库回答问题"""
@@ -50,14 +63,22 @@ class RAGEngine:
             prompt = f"""请回答以下问题：
 {question}"""
 
-        # 4. 调用 Ollama 生成回答
-        response = self.client.chat(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}]
-        )
+        # 4. 调用 LLM 生成回答
+        if self.provider == "openai":
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            answer = response.choices[0].message.content
+        else:
+            response = self.client.chat(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            answer = response['message']['content']
 
         return {
-            "answer": response['message']['content'],
+            "answer": answer,
             "sources": {
                 "documents": search_results['documents'],
                 "qa_pairs": search_results['qa_pairs']
@@ -91,12 +112,22 @@ class RAGEngine:
             prompt = f"请回答以下问题：\n{question}"
 
         # 流式输出
-        for chunk in self.client.chat(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-            stream=True
-        ):
-            yield chunk['message']['content']
+        if self.provider == "openai":
+            stream = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                stream=True
+            )
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+        else:
+            for chunk in self.client.chat(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                stream=True
+            ):
+                yield chunk['message']['content']
 
 
 # 全局 RAG 引擎实例

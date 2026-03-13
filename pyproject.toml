@@ -12,6 +12,7 @@ dependencies = [
     "pysqlite3-binary>=0.5.0; sys_platform != 'darwin'",
     "numpy<2.0",
     "ollama>=0.1.0",
+    "openai>=1.0.0",
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
     "httpx>=0.25.0",

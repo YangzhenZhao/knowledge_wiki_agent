@@ -13,7 +13,13 @@ from datetime import datetime
 from models import DocumentUpload, QAUpload, QueryRequest, QueryResponse, WebUrlUpload
 from vector_store import vector_store
 from rag import rag_engine
-from config import HOST, PORT, OLLAMA_MODEL, OLLAMA_EMBED_MODEL, ADMIN_API_KEY, APP_TITLE
+from config import (
+    HOST, PORT, LLM_PROVIDER,
+    OLLAMA_MODEL, OLLAMA_EMBED_MODEL,
+    OPENAI_MODEL,
+    ADMIN_API_KEY, APP_TITLE,
+    get_llm_model
+)
 
 app = FastAPI(
     title="知识库问答 Agent",
@@ -279,7 +285,8 @@ async def get_status():
     """获取系统状态"""
     return {
         "success": True,
-        "model": OLLAMA_MODEL,
+        "provider": LLM_PROVIDER,
+        "model": get_llm_model(),
         "embed_model": OLLAMA_EMBED_MODEL,
         "document_count": len(vector_store.list_documents()),
         "qa_count": len(vector_store.list_qa_pairs()),
