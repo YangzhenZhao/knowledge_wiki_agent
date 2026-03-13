@@ -2,6 +2,13 @@
 向量数据库管理模块
 使用 ChromaDB 存储和检索文档
 """
+# 修复旧版 Linux 系统的 sqlite3 版本问题
+# ChromaDB 需要 sqlite3 >= 3.35.0
+import sys
+if sys.platform != 'darwin':  # 非 macOS 系统才需要替换
+    __import__('pysqlite3')
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
 import chromadb
 from chromadb.config import Settings
 from typing import List, Optional
