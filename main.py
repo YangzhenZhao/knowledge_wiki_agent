@@ -13,6 +13,7 @@ from datetime import datetime
 from models import DocumentUpload, QAUpload, QueryRequest, QueryResponse, WebUrlUpload
 from vector_store import vector_store
 from rag import rag_engine
+from skill_loader import skill_loader
 from config import (
     HOST, PORT, LLM_PROVIDER,
     OLLAMA_MODEL, OLLAMA_EMBED_MODEL,
@@ -290,8 +291,48 @@ async def get_status():
         "embed_model": OLLAMA_EMBED_MODEL,
         "document_count": len(vector_store.list_documents()),
         "qa_count": len(vector_store.list_qa_pairs()),
-        "app_title": APP_TITLE
+        "app_title": APP_TITLE,
+        "skills": [skill.name for skill in skill_loader.list_all()]
     }
+
+
+@app.get("/api/skills")
+async def list_skills():
+    """列出所有可用技能"""
+    skills = []
+    for skill in skill_loader.list_all():
+        skills.append({
+            "name": skill.name,
+            "description": skill.description,
+            "trigger_words": skill.trigger_words,
+            "parameters": [
+                {
+                    "name": p.name,
+                    "type": p.type,
+                    "description": p.description,
+                    "required": p.required,
+                    "enum": p.enum if p.enum else None
+                }
+                for p in skill.parameters
+            ],
+            "examples": skill.examples,
+            "file": skill.file_path
+        })
+    return {"success": True, "skills": skills}
+
+
+@app.post("/api/skills/{skill_name}/execute")
+async def execute_skill(skill_name: str, arguments: dict):
+    """直接执行指定技能"""
+    result = skill_loader.execute(skill_name, arguments)
+    return {"success": True, "result": result}
+
+
+@app.post("/api/skills/reload")
+async def reload_skills(_: bool = Depends(verify_admin)):
+    """重新加载所有技能（热重载）"""
+    skill_loader.reload()
+    return {"success": True, "message": "技能已重新加载", "count": len(skill_loader.list_all())}
 
 
 if __name__ == "__main__":
