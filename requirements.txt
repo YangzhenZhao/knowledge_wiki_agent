@@ -12,3 +12,7 @@ ollama==0.1.6
 # Utils
 python-dotenv==1.0.0
 pydantic==2.5.3
+
+# Web scraping
+httpx==0.25.2
+beautifulsoup4==4.12.3

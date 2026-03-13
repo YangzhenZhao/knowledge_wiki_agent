@@ -29,6 +29,12 @@ class QueryResponse(BaseModel):
     timestamp: datetime = datetime.now()
 
 
+class WebUrlUpload(BaseModel):
+    """网页URL上传模型"""
+    url: str
+    title: Optional[str] = None
+
+
 class DocumentResponse(BaseModel):
     """文档响应模型"""
     id: str

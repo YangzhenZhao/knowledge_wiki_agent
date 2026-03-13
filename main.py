@@ -10,7 +10,7 @@ import json
 import traceback
 from datetime import datetime
 
-from models import DocumentUpload, QAUpload, QueryRequest, QueryResponse
+from models import DocumentUpload, QAUpload, QueryRequest, QueryResponse, WebUrlUpload
 from vector_store import vector_store
 from rag import rag_engine
 from config import HOST, PORT, OLLAMA_MODEL, OLLAMA_EMBED_MODEL
@@ -74,6 +74,64 @@ async def upload_document_file(
             content=text
         )
         return {"success": True, "id": doc_id, "message": "文档上传成功"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/documents/url")
+async def upload_document_url(web_url: WebUrlUpload):
+    """通过URL抓取网页内容并存储"""
+    import httpx
+    from bs4 import BeautifulSoup
+
+    try:
+        # 抓取网页
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                web_url.url,
+                follow_redirects=True,
+                headers={"User-Agent": "Mozilla/5.0 (compatible; KnowledgeWikiBot/1.0)"}
+            )
+            response.raise_for_status()
+
+        # 解析网页内容
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # 移除脚本和样式
+        for element in soup(['script', 'style', 'nav', 'footer', 'header']):
+            element.decompose()
+
+        # 提取文本
+        text = soup.get_text(separator='\n', strip=True)
+
+        # 清理多余的空行
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        content = '\n'.join(lines)
+
+        if not content:
+            raise HTTPException(status_code=400, detail="无法从网页提取有效内容")
+
+        # 使用提供的标题或从网页获取
+        title = web_url.title
+        if not title:
+            title_tag = soup.find('title')
+            title = title_tag.get_text().strip() if title_tag else web_url.url
+
+        # 存储到向量数据库
+        doc_id = vector_store.add_document(
+            title=title,
+            content=content
+        )
+
+        return {
+            "success": True,
+            "id": doc_id,
+            "message": "网页内容存储成功",
+            "title": title,
+            "content_length": len(content)
+        }
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=400, detail=f"网页请求失败: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

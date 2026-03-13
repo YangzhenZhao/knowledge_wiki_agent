@@ -5,6 +5,7 @@
 ## 功能特点
 
 - 上传文本文档或文件（.txt, .md）
+- 从网页 URL 抓取内容并存储
 - 添加自定义问答对
 - 基于向量检索的智能问答
 - 流式输出回答
@@ -77,6 +78,7 @@ python main.py
 |------|------|------|
 | POST | `/api/documents` | 上传文档（JSON） |
 | POST | `/api/documents/file` | 上传文档（文件） |
+| POST | `/api/documents/url` | 从网页URL抓取并存储 |
 | GET | `/api/documents` | 获取文档列表 |
 | DELETE | `/api/documents/{id}` | 删除文档 |
 | POST | `/api/qa` | 添加问答对 |

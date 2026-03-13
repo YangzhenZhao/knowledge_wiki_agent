@@ -38,12 +38,11 @@ class VectorStore:
         """使用 Ollama 生成文本嵌入向量"""
         try:
             # 使用配置的 Ollama host
-            response = self.ollama_client.embed(
+            response = self.ollama_client.embeddings(
                 model=OLLAMA_EMBED_MODEL,
-                input=text
+                prompt=text
             )
-            # response['embeddings'] 是列表的列表
-            return response['embeddings'][0]
+            return response['embedding']
         except Exception as e:
             print(f"Error getting embedding: {e}")
             print(traceback.format_exc())
