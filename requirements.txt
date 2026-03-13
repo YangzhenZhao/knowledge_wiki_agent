@@ -4,15 +4,17 @@ uvicorn==0.27.0
 python-multipart==0.0.6
 
 # Vector Database
-chromadb==0.4.22
+chromadb==1.5.5
+numpy==2.4.3
 
 # Ollama
-ollama==0.1.6
+ollama==0.6.1
 
 # Utils
 python-dotenv==1.0.0
-pydantic==2.5.3
+pydantic==2.12.5
+pydantic-core==2.41.5
 
 # Web scraping
-httpx==0.25.2
+httpx==0.28.1
 beautifulsoup4==4.12.3
