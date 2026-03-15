@@ -9,6 +9,7 @@ from typing import Optional
 import json
 import traceback
 import re
+import asyncio
 from datetime import datetime
 
 from models import DocumentUpload, QAUpload, QueryRequest, QueryResponse, WebUrlUpload
@@ -22,6 +23,9 @@ from config import (
     ADMIN_API_KEY, APP_TITLE,
     get_llm_model
 )
+
+# API 超时时间（秒）
+API_TIMEOUT = 90
 
 app = FastAPI(
     title="知识库问答 Agent",
@@ -252,9 +256,14 @@ async def delete_qa(qa_id: str, _: bool = Depends(verify_admin)):
 async def query(request: QueryRequest, api_key: str = Header(None, alias="X-API-Key")):
     """查询知识库"""
     try:
-        result = rag_engine.query(
-            question=request.question,
-            top_k=request.top_k
+        # 使用 asyncio.wait_for 添加超时控制
+        result = await asyncio.wait_for(
+            asyncio.to_thread(
+                rag_engine.query,
+                question=request.question,
+                top_k=request.top_k
+            ),
+            timeout=API_TIMEOUT
         )
 
         # 只有 admin 才返回来源
@@ -279,6 +288,9 @@ async def query(request: QueryRequest, api_key: str = Header(None, alias="X-API-
             answer=result['answer'],
             sources=sources
         )
+    except asyncio.TimeoutError:
+        print(f"Timeout in /api/query after {API_TIMEOUT}s")
+        raise HTTPException(status_code=504, detail=f"请求超时，请稍后重试（超时时间: {API_TIMEOUT}秒）")
     except Exception as e:
         print(f"Error in /api/query: {e}")
         print(traceback.format_exc())
@@ -291,13 +303,24 @@ async def query_stream(request: QueryRequest):
     """流式查询知识库"""
 
     def generate():
+        import time
+        start_time = time.time()
+
         try:
             print(f"[Stream] 开始处理问题: {request.question[:50]}...")
             for chunk in rag_engine.query_stream(
                 question=request.question,
                 top_k=request.top_k
             ):
+                # 检查是否超时
+                elapsed = time.time() - start_time
+                if elapsed > API_TIMEOUT:
+                    print(f"[Stream] 超时，已运行 {elapsed:.1f}秒")
+                    yield f"data: {json.dumps({'error': f'请求超时，请稍后重试（超时时间: {API_TIMEOUT}秒）', 'done': True})}\n\n"
+                    return
+
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
+
             print("[Stream] 成功完成")
             yield f"data: {json.dumps({'done': True})}\n\n"
         except Exception as e:

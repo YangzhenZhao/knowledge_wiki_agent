@@ -442,6 +442,10 @@
                     } catch (e) {
                         // 无法解析 JSON，使用默认消息
                     }
+                    // 处理超时错误 (504 Gateway Timeout)
+                    if (response.status === 504) {
+                        errorMsg = `⏱️ ${errorMsg}`;
+                    }
                     assistantDiv.innerHTML = `错误: ${errorMsg}`;
                     isLoading = false;
                     document.getElementById('send-text').textContent = '发送';
@@ -504,13 +508,16 @@
                                         // 获取来源失败，显示错误（但回答本身已成功）
                                         const errorDiv = document.createElement('div');
                                         errorDiv.className = 'sources';
-                                        errorDiv.innerHTML = `<span style="color: #e74c3c;">获取来源失败: ${err.message}</span>`;
+                                        const errText = err.message.includes('超时') ? `⏱️ ${err.message}` : err.message;
+                                        errorDiv.innerHTML = `<span style="color: #e74c3c;">获取来源失败: ${errText}</span>`;
                                         assistantDiv.appendChild(errorDiv);
                                     });
                                 }
                             }
                             if (data.error) {
-                                assistantDiv.innerHTML = `错误: ${data.error}`;
+                                // 检查是否是超时错误
+                                const errorText = data.error.includes('超时') ? `⏱️ ${data.error}` : data.error;
+                                assistantDiv.innerHTML = `错误: ${errorText}`;
                                 hasError = true;
                                 break;
                             }
