@@ -9,6 +9,9 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")
 # Embedding 提供者配置: "ollama" 或 "openai"
 EMBED_PROVIDER = os.getenv("EMBED_PROVIDER", "ollama")
 
+# 是否启用 Function Calling（某些 API 如 GLM 可能不支持）
+ENABLE_FUNCTION_CALLING = os.getenv("ENABLE_FUNCTION_CALLING", "false").lower() == "true"
+
 # Ollama 配置
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")

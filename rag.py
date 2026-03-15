@@ -6,7 +6,8 @@ RAG 模块 - 检索增强生成
 from typing import List
 from config import (
     LLM_PROVIDER, OLLAMA_MODEL, OLLAMA_BASE_URL,
-    OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL
+    OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL,
+    ENABLE_FUNCTION_CALLING
 )
 from vector_store import vector_store
 from skill_loader import skill_loader
@@ -65,38 +66,54 @@ class RAGEngine:
 
         # 4. 调用 LLM（支持 Function Calling）
         if self.provider == "openai":
-            return self._query_openai_with_tools(system_prompt, user_prompt, question)
+            return self._query_openai_with_tools(system_prompt, user_prompt, question, search_results)
         else:
             # Ollama 暂不支持 function calling，走普通流程
             return self._query_ollama_simple(system_prompt, user_prompt, question, search_results)
 
-    def _query_openai_with_tools(self, system_prompt: str, user_prompt: str, question: str) -> dict:
+    def _query_openai_with_tools(self, system_prompt: str, user_prompt: str, question: str, search_results: dict) -> dict:
         """OpenAI 带 Function Calling 的查询"""
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ]
 
-        # 获取所有工具 schema
-        tools = skill_loader.get_all_schemas()
+        # 检查是否启用 Function Calling
+        if ENABLE_FUNCTION_CALLING:
+            # 获取所有工具 schema
+            tools = skill_loader.get_all_schemas()
 
-        # 检测是否需要强制调用计算器
-        tool_choice = "auto"
-        needs_calc = self._needs_calculator(question)
-        if needs_calc and skill_loader.get("calculator"):
-            tool_choice = {"type": "function", "function": {"name": "calculator"}}
+            # 检测是否需要强制调用计算器
+            tool_choice = "auto"
+            needs_calc = self._needs_calculator(question)
+            if needs_calc and skill_loader.get("calculator"):
+                tool_choice = {"type": "function", "function": {"name": "calculator"}}
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            tools=tools if tools else None,
-            tool_choice=tool_choice
-        )
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    tools=tools if tools else None,
+                    tool_choice=tool_choice
+                )
+            except Exception as e:
+                # 如果 API 不支持 tools 参数，回退到普通调用
+                print(f"API 不支持 function calling，回退到普通模式: {e}")
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages
+                )
+        else:
+            # 不启用 Function Calling，直接调用
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages
+            )
 
         message = response.choices[0].message
 
         # 检查是否需要调用工具
-        if message.tool_calls:
+        if ENABLE_FUNCTION_CALLING and message.tool_calls:
             # 执行工具调用
             tool_results = []
             for tool_call in message.tool_calls:
@@ -129,11 +146,15 @@ class RAGEngine:
         else:
             answer = message.content
 
+        # 处理 answer 为 None 的情况
+        if answer is None:
+            answer = "抱歉，无法生成回答。"
+
         return {
             "answer": answer,
             "sources": {
-                "documents": [],
-                "qa_pairs": []
+                "documents": search_results['documents'],
+                "qa_pairs": search_results['qa_pairs']
             }
         }
 
@@ -199,14 +220,29 @@ class RAGEngine:
 
         # 流式输出
         if self.provider == "openai":
-            stream = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                stream=True
-            )
-            for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    yield chunk.choices[0].delta.content
+            try:
+                stream = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    stream=True
+                )
+                has_content = False
+                for chunk in stream:
+                    # 检查是否有内容
+                    if chunk.choices and len(chunk.choices) > 0:
+                        delta = chunk.choices[0].delta
+                        if delta and hasattr(delta, 'content') and delta.content:
+                            has_content = True
+                            yield delta.content
+                        # 检查 finish_reason 是否为 content_filter
+                        if chunk.choices[0].finish_reason == "content_filter":
+                            raise Exception("内容被安全过滤，请修改问题后重试")
+                    # 如果没有任何内容，可能是被过滤了
+                if not has_content:
+                    raise Exception("API 未返回任何内容，可能触发了内容过滤")
+            except Exception as api_error:
+                print(f"OpenAI API error in query_stream: {api_error}")
+                raise api_error
         else:
             for chunk in self.client.chat(
                 model=self.model,

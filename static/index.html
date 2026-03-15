@@ -433,11 +433,28 @@
                     body: JSON.stringify({ question, top_k: 3 })
                 });
 
+                // 检查 HTTP 响应状态
+                if (!response.ok) {
+                    let errorMsg = `HTTP ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMsg = errorData.detail || errorMsg;
+                    } catch (e) {
+                        // 无法解析 JSON，使用默认消息
+                    }
+                    assistantDiv.innerHTML = `错误: ${errorMsg}`;
+                    isLoading = false;
+                    document.getElementById('send-text').textContent = '发送';
+                    scrollToBottom();
+                    return;
+                }
+
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let fullAnswer = '';
+                let hasError = false;
 
-                while (true) {
+                while (!hasError) {
                     const { done, value } = await reader.read();
                     if (done) break;
 
@@ -460,7 +477,14 @@
                                         method: 'POST',
                                         headers: getHeaders(true),
                                         body: JSON.stringify({ question, top_k: 3 })
-                                    }).then(r => r.json())
+                                    }).then(r => {
+                                        if (!r.ok) {
+                                            return r.json().then(err => {
+                                                throw new Error(err.detail || '获取来源失败');
+                                            });
+                                        }
+                                        return r.json();
+                                    })
                                     .then(result => {
                                         if (result.sources && result.sources.length > 0) {
                                             const sourcesDiv = document.createElement('div');
@@ -476,11 +500,19 @@
                                             `;
                                             assistantDiv.appendChild(sourcesDiv);
                                         }
+                                    }).catch(err => {
+                                        // 获取来源失败，显示错误（但回答本身已成功）
+                                        const errorDiv = document.createElement('div');
+                                        errorDiv.className = 'sources';
+                                        errorDiv.innerHTML = `<span style="color: #e74c3c;">获取来源失败: ${err.message}</span>`;
+                                        assistantDiv.appendChild(errorDiv);
                                     });
                                 }
                             }
                             if (data.error) {
                                 assistantDiv.innerHTML = `错误: ${data.error}`;
+                                hasError = true;
+                                break;
                             }
                         }
                     }

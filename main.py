@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 import json
 import traceback
+import re
 from datetime import datetime
 
 from models import DocumentUpload, QAUpload, QueryRequest, QueryResponse, WebUrlUpload
@@ -48,6 +49,30 @@ async def verify_admin(api_key: str = Header(None, alias="X-API-Key")):
     if api_key != ADMIN_API_KEY:
         raise HTTPException(status_code=403, detail="需要管理员权限")
     return True
+
+
+def extract_error_message(error: Exception) -> str:
+    """从 API 错误中提取友好的错误消息"""
+    error_str = str(error)
+    # 尝试从 GLM API 错误中提取 message
+    # 格式: Error code: 400 - {'error': {'code': '1301', 'message': '...'}}
+    try:
+        # 尝试匹配 JSON 部分（支持单引号的 Python dict 格式）
+        json_match = re.search(r"\{.*\}", error_str)
+        if json_match:
+            # 尝试作为 JSON 解析（双引号）
+            try:
+                error_data = json.loads(json_match.group())
+            except json.JSONDecodeError:
+                # 如果失败，尝试用 ast 解析 Python 字典格式（单引号）
+                import ast
+                error_data = ast.literal_eval(json_match.group())
+
+            if 'error' in error_data and isinstance(error_data['error'], dict):
+                return error_data['error'].get('message', error_str)
+    except (json.JSONDecodeError, AttributeError, ValueError, SyntaxError):
+        pass
+    return error_str
 
 
 # ==================== 页面路由 ====================
@@ -255,7 +280,10 @@ async def query(request: QueryRequest, api_key: str = Header(None, alias="X-API-
             sources=sources
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error in /api/query: {e}")
+        print(traceback.format_exc())
+        error_msg = extract_error_message(e)
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 @app.post("/api/query/stream")
@@ -264,14 +292,20 @@ async def query_stream(request: QueryRequest):
 
     def generate():
         try:
+            print(f"[Stream] 开始处理问题: {request.question[:50]}...")
             for chunk in rag_engine.query_stream(
                 question=request.question,
                 top_k=request.top_k
             ):
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
+            print("[Stream] 成功完成")
             yield f"data: {json.dumps({'done': True})}\n\n"
         except Exception as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            print(f"Error in /api/query/stream: {e}")
+            print(traceback.format_exc())
+            error_msg = extract_error_message(e)
+            print(f"[Stream] 发送错误: {error_msg}")
+            yield f"data: {json.dumps({'error': error_msg, 'done': True})}\n\n"
 
     return StreamingResponse(
         generate(),
